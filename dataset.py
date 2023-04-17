@@ -19,12 +19,17 @@ class dataset(Dataset):
         # basic transform
         self.Transform = {
             'train': transforms.Compose([
-                transforms.Grayscale(num_output_channels=3),  # Add this line
+                transforms.Grayscale(num_output_channels=3),
                 transforms.Resize(input_size),
                 transforms.ToTensor()
             ]),
             'val': transforms.Compose([
-                transforms.Grayscale(num_output_channels=3),  # Add this line
+                transforms.Grayscale(num_output_channels=3),
+                transforms.Resize(input_size),
+                transforms.ToTensor()
+            ]),
+            'test': transforms.Compose([
+                transforms.Grayscale(num_output_channels=3),
                 transforms.Resize(input_size),
                 transforms.ToTensor()
             ])
@@ -32,7 +37,7 @@ class dataset(Dataset):
         if use_transforms:
             self.Transform = {
                 'train': transforms.Compose([
-                    transforms.Grayscale(num_output_channels=3),  # Add this line
+                    transforms.Grayscale(num_output_channels=3),
                     # transforms.Resize(input_size),
                     transforms.Resize((int(input_size[0] * 1.2), int(input_size[1] * 1.2))),
                     transforms.RandomCrop(input_size),
@@ -44,7 +49,12 @@ class dataset(Dataset):
                     # transforms.RandomPerspective(distortion_scale=0.2),
                 ]),
                 'val': transforms.Compose([
-                    transforms.Grayscale(num_output_channels=3),  # Add this line
+                    transforms.Grayscale(num_output_channels=3),
+                    transforms.Resize(input_size),
+                    transforms.ToTensor(),
+                ]),
+                'test': transforms.Compose([
+                    transforms.Grayscale(num_output_channels=3),
                     transforms.Resize(input_size),
                     transforms.ToTensor(),
                 ])
