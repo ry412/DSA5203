@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import *
+from model.utils import *
 
 class Model(nn.Module):
     def __init__(self, cls_nums):
         super(Model, self).__init__()
-        cov_channels = [1, 32, 64, 32]
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=cov_channels[0], kernel_size=3, padding=1, stride=1)
+        cov_channels = [3, 32, 64, 32]
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=cov_channels[0], kernel_size=3, padding=1, stride=1)
         self.conv2 = nn.Conv2d(in_channels=cov_channels[0], out_channels=cov_channels[1], kernel_size=3, padding=1, stride=1)
         self.conv3 = nn.Conv2d(in_channels=cov_channels[1], out_channels=cov_channels[2], kernel_size=3, padding=1, stride=1)
         self.conv4 = nn.Conv2d(in_channels=cov_channels[2], out_channels=cov_channels[3], kernel_size=3, padding=1, stride=1)

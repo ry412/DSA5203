@@ -18,9 +18,8 @@ import warnings
 import matplotlib
 from dataset import dataset
 from torchvision.models import _utils
-from model.Resnet import BasicBlockModel as Model
-
-# from model.BasicCNN import Model
+from model.Resnet import BasicBlockModel as ResnetModel
+from model.BasicCNN import Model as CNNModel
 with open("classes.json") as f:
     classes = json.load(f)
 
@@ -53,8 +52,12 @@ def get_accuracy(**kwargs):
     pass
 
 
-def save_model(model, model_dir):
-    torch.save(model, model_dir)
+def save_model(model, model_name):
+    model_dir = os.path.join('models', model_name)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    torch.save(model, os.path.join(model_dir, 'model.pth'))
+
 
 
 class EarlyStopping:
@@ -156,11 +159,18 @@ def train(train_data_dir, model_dir, **kwargs):
                                                 batch_size=kwargs["extra_args"]["batch_size"],
                                                 shuffle=True)
     # model
-    # model = Model(kwargs["extra_args"]["cls_nums"]).to(device)
-    model = models.resnet50(pretrained=True)
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, kwargs["extra_args"]["cls_nums"])
-    model = model.to(device)
+    if kwargs["extra_args"]["model"] == 'cnn':
+        model = CNNModel(kwargs["extra_args"]["cls_nums"]).to(device)
+        opt.model_dir = os.path.join(opt.model_dir, 'cnn')
+    elif kwargs["extra_args"]["model"] == 'resnet':
+        model = ResnetModel(kwargs["extra_args"]["cls_nums"]).to(device)
+        opt.model_dir = os.path.join(opt.model_dir, 'resnet')
+    elif kwargs["extra_args"]["model"] == 'resnet50':
+        model = models.resnet50(pretrained=True)
+        opt.model_dir = os.path.join(opt.model_dir, 'resnet50')
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Linear(num_ftrs, kwargs["extra_args"]["cls_nums"])
+        model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(),
@@ -229,7 +239,8 @@ def train(train_data_dir, model_dir, **kwargs):
             print("Early stopping triggered")
             break
     # Save the best model from the early stopping object
-    save_model(early_stopping.best_model, opt.model_dir)
+    save_model(early_stopping.best_model, opt.model)
+    # save_model(model, opt.model)
     plt.figure(0)
     plt.plot(train_loss_list, 'r', label='train')
     plt.plot(val_loss_list, 'b', label='val')
@@ -267,10 +278,20 @@ def test(test_data_dir, model_dir, **kwargs):
     print(f"device = {device}")
 
     # Load the pre-trained model
-    model = models.resnet50(pretrained=False)
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, kwargs["extra_args"]["cls_nums"])
-    model.load_state_dict(torch.load(model_dir))
+    model_path = os.path.join('models', kwargs["extra_args"]["model"], 'model.pth')
+    if kwargs["extra_args"]["model"] == "cnn":
+        model = CNNModel(kwargs["extra_args"]["cls_nums"])
+        model = torch.load(model_path)
+    elif kwargs["extra_args"]["model"] == "resnet":
+        model = ResnetModel(kwargs["extra_args"]["cls_nums"])
+        model = torch.load(model_path)
+    elif kwargs["extra_args"]["model"] == "resnet50":
+        model = models.resnet50(pretrained=False)
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Linear(num_ftrs, kwargs["extra_args"]["cls_nums"])
+        state_dict = torch.load(model_path)
+        model.load_state_dict(state_dict)
+
     model = model.to(device)
     model.eval()
 
@@ -322,6 +343,8 @@ if __name__ == '__main__':
     parser.add_argument('--train_val_split', default=0.8, help='percent of train data')
     parser.add_argument('--use_transforms', default=True, help='use image transforms')
     # params for model
+    parser.add_argument('--model', type=str, default='cnn', choices=['cnn', 'resnet', 'resnet50'],
+                        help='choose the model architecture')
     parser.add_argument('--input_size', default=(224, 224), help='input size of model')
     parser.add_argument('--cls_nums', default=15, help='num of classes')
     # params for train
@@ -332,7 +355,7 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', default=5e-4, help='L2 regularization')
     parser.add_argument('--lr_decay_step', default=40, help='lr_decay_step')
     parser.add_argument('--lr_decay_factor', default=0.8, help='lr_decay_factor')
-    parser.add_argument('--num_epochs', default=500, help='epochs')
+    parser.add_argument('--num_epochs', default=200, help='epochs')
     # ---------------
     opt = parser.parse_args()
 
@@ -340,7 +363,7 @@ if __name__ == '__main__':
                   "use_gpu": opt.use_gpu, "input_size": opt.input_size, "cls_nums": opt.cls_nums,
                   "lr": opt.lr, "momentum": opt.momentum, "lr_decay_step": opt.lr_decay_step,
                   "lr_decay_factor": opt.lr_decay_factor, "num_epochs": opt.num_epochs,
-                  "model_dir": opt.model_dir, "weight_decay": opt.weight_decay}
+                  "model_dir": opt.model_dir, "weight_decay": opt.weight_decay, "model": opt.model}
     if opt.phase == 'train':
         training_accuracy = train(opt.train_data_dir, opt.model_dir, extra_args=extra_args)
         print(training_accuracy)

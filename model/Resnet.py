@@ -7,8 +7,8 @@ from model.blocks import *
 class BasicBlockModel(nn.Module):
     def __init__(self, cls_nums):
         super(BasicBlockModel, self).__init__()
-        cov_channels = [1, 8, 16, 8]
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=cov_channels[1], kernel_size=1)
+        cov_channels = [3, 8, 16, 8]
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=cov_channels[1], kernel_size=1)
         self.block1 = BasicBlock(channels=cov_channels[1])
         # self.block1 = BottleNeck(in_channel=cov_channels[1], hidden_channel=int(cov_channels[1] / 4))
 
