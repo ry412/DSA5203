@@ -3,64 +3,73 @@ Guideline of your submission of HW3.
 If you have any questions in regard to submission,
 please contact TA: Zheng Huan <huan_zheng@u.nus.edu>
 """
+# Import necessary libraries
 import os
 import json
 import random
 import time
+import warnings
 
 import matplotlib.pyplot as plt
+import matplotlib
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
 from torchvision import models
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-import warnings
-import matplotlib
-from dataset import dataset
 from torchvision.models import _utils
+
+from dataset import dataset
 from model.Resnet import BasicBlockModel as ResnetModel
 from model.BasicCNN import Model as CNNModel
+
+# Load class information from the JSON file
 with open("classes.json") as f:
     classes = json.load(f)
 
+# Set random seeds for reproducibility
 torch.manual_seed(1)
 torch.cuda.manual_seed(1)
 random.seed(1)
+
+# Ignore certain warnings
 warnings.filterwarnings("ignore", category=UserWarning, module=_utils.__name__)
 warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarning)
-###################################### Subroutines #####################################################################
-"""
-Example of subroutines you might need. 
-You could add/modify your subroutines in this section. You can also delete the unnecessary functions.
-It is encouraging but not necessary to name your subroutines as these examples. 
-"""
 
+###################################### Subroutines #####################################################################
+# The following subroutines are examples that you might need for your implementation.
+# You can add, modify, or delete these subroutines as needed.
 
 def build_vocabulary(**kwargs):
     pass
 
-
 def get_hist(**kwargs):
     pass
-
 
 def classifier(**kwargs):
     pass
 
-
 def get_accuracy(**kwargs):
     pass
 
-
 def save_model(model, model_name):
+    """
+    Save the model to the specified directory.
+
+    Args:
+        model (nn.Module): The model to save.
+        model_name (str): The name of the model.
+    """
     model_dir = os.path.join('models', model_name)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
     torch.save(model, os.path.join(model_dir, 'model.pth'))
 
-
-
 class EarlyStopping:
+    """
+    Early stopping to stop the training when the validation loss does not improve after a certain number of epochs.
+    """
     def __init__(self, patience=5, delta=0.0):
         self.patience = patience
         self.counter = 0
@@ -86,32 +95,61 @@ class EarlyStopping:
             self.save_checkpoint(val_loss, model)
             self.counter = 0
         return False
+
     @staticmethod
     def save_checkpoint(val_loss, model):
+        """
+        Save the model if the validation loss has decreased.
+
+        Args:
+            val_loss (float): The current validation loss.
+            model (nn.Module): The model to save.
+        """
         print(f'Validation loss decreased ({val_loss:.6f}). Saving model...')
         torch.save(model.state_dict(), 'best_model.pt')
-
 def split_train_val_data(train_data_dir, train_val_split):
+    """
+    Split the dataset into train and validation sets based on the given train_val_split ratio.
+
+    Args:
+        train_data_dir (str): The directory containing the training data.
+        train_val_split (float): The ratio of training data to total data.
+
+    Returns:
+        train_images (list): A list of filepaths for the training images.
+        train_labels (list): A list of labels for the training images.
+        val_images (list): A list of filepaths for the validation images.
+        val_labels (list): A list of labels for the validation images.
+    """
     print("Split data...")
     train_images = []
     train_labels = []
     val_images = []
     val_labels = []
 
+    # Iterate through each class
     for i in range(len(classes)):
         sub_class = classes[str(i + 1)]
         sub_dir = os.path.join(train_data_dir, sub_class)
         image_names = os.listdir(sub_dir)
+
+        # Calculate the number of training images based on train_val_split
         train_num = int(len(image_names) * train_val_split)
+
+        # Randomly shuffle the image names to ensure a random distribution of images
         random.shuffle(image_names)
+
+        # Split the image names into training and validation sets
         for name in image_names[:train_num]:
             train_images.append(os.path.join(sub_dir, name))
             train_labels.append(i)
         for name in image_names[train_num:]:
             val_images.append(os.path.join(sub_dir, name))
             val_labels.append(i)
+
     print("Finished")
     return train_images, train_labels, val_images, val_labels
+
 
 
 ###################################### Main train and test Function ####################################################
@@ -137,28 +175,32 @@ def train(train_data_dir, model_dir, **kwargs):
     Return:
         train_accuracy (float): The training accuracy.
     """
-    # device
+    # Device configuration
     use_gpu = kwargs["extra_args"]["use_gpu"]
     if use_gpu:
         use_gpu = True if torch.cuda.is_available() else False
     device = torch.device('cuda' if use_gpu else "cpu")
     print(f"device = {device}")
-    # build dataset
+
+    # Split the dataset into training and validation sets
     train_images, train_labels, val_images, val_labels = split_train_val_data(opt.train_data_dir, opt.train_val_split)
     train_num, val_num = len(train_labels), len(val_labels)
     print(f"train_num = {train_num}, val_num = {val_num}")
+
+    # Create the training and validation datasets
     train_set = dataset(train_images, train_labels, 'train',
                         kwargs["extra_args"]["use_transforms"], kwargs["extra_args"]["input_size"])
     val_set = dataset(val_images, val_labels, 'val',
                       kwargs["extra_args"]["use_transforms"], kwargs["extra_args"]["input_size"])
-    # build data loader
+
+    # Create data loaders for the training and validation sets
     train_dataloder = torch.utils.data.DataLoader(train_set,
                                                   batch_size=kwargs["extra_args"]["batch_size"],
                                                   shuffle=True)
     val_dataloder = torch.utils.data.DataLoader(val_set,
                                                 batch_size=kwargs["extra_args"]["batch_size"],
                                                 shuffle=True)
-    # model
+    # Choose and create the appropriate model based on the input arguments
     if kwargs["extra_args"]["model"] == 'cnn':
         model = CNNModel(kwargs["extra_args"]["cls_nums"]).to(device)
         opt.model_dir = os.path.join(opt.model_dir, 'cnn')
@@ -172,6 +214,7 @@ def train(train_data_dir, model_dir, **kwargs):
         model.fc = nn.Linear(num_ftrs, kwargs["extra_args"]["cls_nums"])
         model = model.to(device)
 
+    # Create the loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(),
                           lr=kwargs["extra_args"]["lr"],
@@ -188,6 +231,7 @@ def train(train_data_dir, model_dir, **kwargs):
     best_acc = 0
     best_model = model.state_dict()
     early_stopping = EarlyStopping(patience=5, delta=0.001)
+    # Train the model
     for epoch in range(kwargs["extra_args"]["num_epochs"]):
         start_time = time.time()
         print(f"------ Epoch {epoch} -----")
@@ -241,6 +285,8 @@ def train(train_data_dir, model_dir, **kwargs):
     # Save the best model from the early stopping object
     save_model(early_stopping.best_model, opt.model)
     # save_model(model, opt.model)
+
+    # Plot the training and validation loss and accuracy
     plt.figure(0)
     plt.plot(train_loss_list, 'r', label='train')
     plt.plot(val_loss_list, 'b', label='val')
